@@ -501,6 +501,13 @@ describe Rack::Lint do
     assert_lint nil, ''
     assert_lint 1, ''
   end
+
+  it "does not inspect valid environment hash" do
+    e = env
+    e.stub(:inspect, -> { raise 'Inspect environment' }) do
+      Rack::Lint.new(->(_) { [200, {}, ''] }).call(e)
+    end
+  end
 end
 
 describe "Rack::Lint::InputWrapper" do

@@ -17,6 +17,7 @@ module Rack
     module Assertion
       def assert(message)
         unless yield
+          message = message.call if message.is_a? Proc
           raise LintError, message
         end
       end
@@ -66,7 +67,7 @@ module Rack
       ## The environment must be an instance of Hash that includes
       ## CGI-like headers.  The application is free to modify the
       ## environment.
-      assert("env #{env.inspect} is not a Hash, but #{env.class}") {
+      assert(-> { "env #{env.inspect} is not a Hash, but #{env.class}" }) {
         env.kind_of? Hash
       }
 
@@ -179,22 +180,22 @@ module Rack
       ##                         The store must implement:
       if session = env[RACK_SESSION]
         ##                         store(key, value)         (aliased as []=);
-        assert("session #{session.inspect} must respond to store and []=") {
+        assert(-> { "session #{session.inspect} must respond to store and []=" }) {
           session.respond_to?(:store) && session.respond_to?(:[]=)
         }
 
         ##                         fetch(key, default = nil) (aliased as []);
-        assert("session #{session.inspect} must respond to fetch and []") {
+        assert(-> { "session #{session.inspect} must respond to fetch and []" }) {
           session.respond_to?(:fetch) && session.respond_to?(:[])
         }
 
         ##                         delete(key);
-        assert("session #{session.inspect} must respond to delete") {
+        assert(-> { "session #{session.inspect} must respond to delete" }) {
           session.respond_to?(:delete)
         }
 
         ##                         clear;
-        assert("session #{session.inspect} must respond to clear") {
+        assert(-> { "session #{session.inspect} must respond to clear" }) {
           session.respond_to?(:clear)
         }
       end
@@ -203,27 +204,27 @@ module Rack
       ##                        The object must implement:
       if logger = env[RACK_LOGGER]
         ##                         info(message, &block)
-        assert("logger #{logger.inspect} must respond to info") {
+        assert(-> { "logger #{logger.inspect} must respond to info" }) {
           logger.respond_to?(:info)
         }
 
         ##                         debug(message, &block)
-        assert("logger #{logger.inspect} must respond to debug") {
+        assert(-> { "logger #{logger.inspect} must respond to debug" }) {
           logger.respond_to?(:debug)
         }
 
         ##                         warn(message, &block)
-        assert("logger #{logger.inspect} must respond to warn") {
+        assert(-> { "logger #{logger.inspect} must respond to warn" }) {
           logger.respond_to?(:warn)
         }
 
         ##                         error(message, &block)
-        assert("logger #{logger.inspect} must respond to error") {
+        assert(-> { "logger #{logger.inspect} must respond to error" }) {
           logger.respond_to?(:error)
         }
 
         ##                         fatal(message, &block)
-        assert("logger #{logger.inspect} must respond to fatal") {
+        assert(-> { "logger #{logger.inspect} must respond to fatal" }) {
           logger.respond_to?(:fatal)
         }
       end
@@ -279,11 +280,11 @@ module Rack
       ## There are the following restrictions:
 
       ## * <tt>rack.version</tt> must be an array of Integers.
-      assert("rack.version must be an Array, was #{env[RACK_VERSION].class}") {
+      assert(-> { "rack.version must be an Array, was #{env[RACK_VERSION].class}" }) {
         env[RACK_VERSION].kind_of? Array
       }
       ## * <tt>rack.url_scheme</tt> must either be +http+ or +https+.
-      assert("rack.url_scheme unknown: #{env[RACK_URL_SCHEME].inspect}") {
+      assert(-> { "rack.url_scheme unknown: #{env[RACK_URL_SCHEME].inspect}" }) {
         %w[http https].include?(env[RACK_URL_SCHEME])
       }
 
@@ -295,7 +296,7 @@ module Rack
       check_hijack env
 
       ## * The <tt>REQUEST_METHOD</tt> must be a valid token.
-      assert("REQUEST_METHOD unknown: #{env[REQUEST_METHOD]}") {
+      assert(-> { "REQUEST_METHOD unknown: #{env[REQUEST_METHOD]}" }) {
         env[REQUEST_METHOD] =~ /\A[0-9A-Za-z!\#$%&'*+.^_`|~-]+\z/
       }
 
@@ -312,7 +313,7 @@ module Rack
         env[PATH_INFO] =~ /\A\//
       }
       ## * The <tt>CONTENT_LENGTH</tt>, if given, must consist of digits only.
-      assert("Invalid CONTENT_LENGTH: #{env["CONTENT_LENGTH"]}") {
+      assert(-> { "Invalid CONTENT_LENGTH: #{env["CONTENT_LENGTH"]}" }) {
         !env.include?("CONTENT_LENGTH") || env["CONTENT_LENGTH"] =~ /\A\d+\z/
       }
 
@@ -335,16 +336,16 @@ module Rack
     def check_input(input)
       ## When applicable, its external encoding must be "ASCII-8BIT" and it
       ## must be opened in binary mode, for Ruby 1.9 compatibility.
-      assert("rack.input #{input} does not have ASCII-8BIT as its external encoding") {
+      assert(-> { "rack.input #{input} does not have ASCII-8BIT as its external encoding" }) {
         input.external_encoding.name == "ASCII-8BIT"
       } if input.respond_to?(:external_encoding)
-      assert("rack.input #{input} is not opened in binary mode") {
+      assert(-> { "rack.input #{input} is not opened in binary mode" }) {
         input.binmode?
       } if input.respond_to?(:binmode?)
 
       ## The input stream must respond to +gets+, +each+, +read+ and +rewind+.
       [:gets, :each, :read, :rewind].each { |method|
-        assert("rack.input #{input} does not respond to ##{method}") {
+        assert(-> { "rack.input #{input} does not respond to ##{method}" }) {
           input.respond_to? method
         }
       }
@@ -455,7 +456,7 @@ module Rack
     def check_error(error)
       ## The error stream must respond to +puts+, +write+ and +flush+.
       [:puts, :write, :flush].each { |method|
-        assert("rack.error #{error} does not respond to ##{method}") {
+        assert(-> { "rack.error #{error} does not respond to ##{method}" }) {
           error.respond_to? method
         }
       }
@@ -623,7 +624,7 @@ module Rack
     ## === The Headers
     def check_headers(header)
       ## The header must respond to +each+, and yield values of key and value.
-      assert("headers object should respond to #each, but doesn't (got #{header.class} as headers)") {
+      assert(-> { "headers object should respond to #each, but doesn't (got #{header.class} as headers)" }) {
          header.respond_to? :each
       }
       header.each { |key, value|
@@ -632,14 +633,14 @@ module Rack
         next if key =~ /^rack\..+$/
 
         ## The header keys must be Strings.
-        assert("header key must be a string, was #{key.class}") {
+        assert(-> { "header key must be a string, was #{key.class}" }) {
           key.kind_of? String
         }
         ## The header must not contain a +Status+ key.
         assert("header must not contain Status") { key.downcase != "status" }
         ## The header must conform to RFC7230 token specification, i.e. cannot
         ## contain non-printable ASCII, DQUOTE or "(),/:;<=>?@[\]{}".
-        assert("invalid header name: #{key}") { key !~ /[\(\),\/:;<=>\?@\[\\\]{}[:cntrl:]]/ }
+        assert(-> { "invalid header name: #{key}" }) { key !~ /[\(\),\/:;<=>\?@\[\\\]{}[:cntrl:]]/ }
 
         ## The values of the header must be Strings,
         assert("a header value must be a String, but the value of " +
@@ -648,7 +649,7 @@ module Rack
         ## <tt>Set-Cookie</tt> values) separated by "\\n".
         value.split("\n").each { |item|
           ## The lines must not contain characters below 037.
-          assert("invalid header value #{key}: #{item.inspect}") {
+          assert(-> { "invalid header value #{key}: #{item.inspect}" }) {
             item !~ /[\000-\037]/
           }
         }
@@ -707,7 +708,7 @@ module Rack
 
       @body.each { |part|
         ## and must only yield String values.
-        assert("Body yielded non-string value #{part.inspect}") {
+        assert(-> { "Body yielded non-string value #{part.inspect}" }) {
           part.kind_of? String
         }
         bytes += part.bytesize
